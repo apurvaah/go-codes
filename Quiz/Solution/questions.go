@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"math/rand"
-	"os"
 	"strings"
 	"time"
 )
@@ -33,25 +31,43 @@ func randomQuestionGenerator(questions [][]string) [][]string {
 }
 
 func askQuestions(questions [][]string) int {
-	correctAns := 0
 
-	scanner := bufio.NewReader(os.Stdin)
+	correctAns := 0
 
 	selectedQuestions := randomQuestionGenerator(questions)
 
-	for _, questions := range selectedQuestions {
-		fmt.Println(questions[0])
-		ans, err := scanner.ReadString('\n')
+	timer := time.NewTimer(time.Duration(10) * time.Second)
+	done := make(chan string)
+
+	go getInput(done)
+
+	for _, question := range selectedQuestions {
+		correct, err := askQuestion(question, timer.C, done)
 		if err != nil {
-			fmt.Println("Error:", err)
+			fmt.Println(err)
 		}
-
-		ans = strings.TrimSpace(ans)
-
-		if ans == questions[1] {
-			correctAns++
-		}
+		correctAns += correct
 	}
 
 	return correctAns
+}
+
+func askQuestion(question []string, timer <-chan time.Time, done <-chan string) (int, error) {
+
+	fmt.Println(question[0])
+	for {
+		select {
+		case <-timer:
+			return 0, fmt.Errorf("Time out")
+		case ans := <-done:
+			score := 0
+			if strings.TrimSpace(strings.ToLower(ans)) == question[1] {
+				score = 1
+			} else {
+				return 0, fmt.Errorf("Wrong Answer")
+			}
+
+			return score, nil
+		}
+	}
 }
